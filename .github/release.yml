@@ -1,0 +1,14 @@
+changelog:
+  categories:
+    - title: Features
+      labels: [feature]
+    - title: Specification compliance
+      labels: [spec-divergence]
+    - title: Bug fixes
+      labels: [bug]
+    - title: Documentation
+      labels: [docs]
+    - title: Maintenance
+      labels: [chore, dependencies]
+    - title: Other changes
+      labels: ["*"]
