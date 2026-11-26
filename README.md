@@ -1,24 +1,40 @@
-# graphql-go-handler [![CircleCI](https://circleci.com/gh/graphql-go/handler.svg?style=svg)](https://circleci.com/gh/graphql-go/handler) [![GoDoc](https://godoc.org/graphql-go/handler?status.svg)](https://godoc.org/github.com/graphql-go/handler) [![Coverage Status](https://coveralls.io/repos/graphql-go/handler/badge.svg?branch=master&service=github)](https://coveralls.io/github/graphql-go/handler?branch=master) [![Join the chat at https://gitter.im/graphql-go/graphql](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/graphql-go/graphql?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+# handler
 
+[![CI](https://github.com/gql-go/handler/actions/workflows/ci.yml/badge.svg)](https://github.com/gql-go/handler/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/gql-go/handler.svg)](https://pkg.go.dev/github.com/gql-go/handler)
 
-Golang HTTP.Handler for [graphl-go](https://github.com/graphql-go/graphql)
+A Go `http.Handler` for [`gql-go/graphql`](https://github.com/gql-go/graphql).
 
-### Usage
+This is a community-maintained continuation of
+[`graphql-go/handler`](https://github.com/graphql-go/handler), created by
+[Hafiz Ismail](https://github.com/sogko) and maintained by
+[Chris Ramón](https://github.com/chris-ramon). It moves together with
+`gql-go/graphql`; see that repository for the motivation, the commitments and the
+roadmap. Its transport items (GraphQL over HTTP, WebSocket and server-sent
+events, persisted queries) will land here.
+
+## Getting started
+
+```bash
+go get github.com/gql-go/handler
+```
 
 ```go
 package main
 
 import (
 	"net/http"
-	"github.com/graphql-go/handler"
+
+	"github.com/gql-go/graphql"
+	"github.com/gql-go/handler"
 )
 
 func main() {
-	schema, _ := graphql.NewSchema(...)
+	schema, _ := graphql.NewSchema(graphql.SchemaConfig{ /* ... */ })
 
 	h := handler.New(&handler.Config{
-		Schema: &schema,
-		Pretty: true,
+		Schema:   &schema,
+		Pretty:   true,
 		GraphiQL: true,
 	})
 
@@ -27,57 +43,48 @@ func main() {
 }
 ```
 
-### Using Playground
-```go
-h := handler.New(&handler.Config{
-	Schema: &schema,
-	Pretty: true,
-	GraphiQL: false,
-	Playground: true,
-})
+To serve GraphQL Playground instead of GraphiQL, set `GraphiQL: false` and
+`Playground: true`.
+
+### Migrating from `graphql-go/handler`
+
+The API is unchanged. Replace both import prefixes:
+
+```
+github.com/graphql-go/handler  ->  github.com/gql-go/handler
+github.com/graphql-go/graphql  ->  github.com/gql-go/graphql
 ```
 
-### Details
+## Request parameters
 
-The handler will accept requests with
-the parameters:
+The handler accepts:
 
-  * **`query`**: A string GraphQL document to be executed.
+- **`query`**: the GraphQL document to execute.
+- **`variables`**: the values for the operation's variables, as a JSON object.
+- **`operationName`**: which operation to run when `query` contains several
+  named operations.
 
-  * **`variables`**: The runtime values to use for any GraphQL query variables
-    as a JSON object.
-
-  * **`operationName`**: If the provided `query` contains multiple named
-    operations, this specifies which operation should be executed. If not
-    provided, an 400 error will be returned if the `query` contains multiple
-    named operations.
-
-GraphQL will first look for each parameter in the URL's query-string:
+It looks for them first in the URL query string:
 
 ```
 /graphql?query=query+getUser($id:ID){user(id:$id){name}}&variables={"id":"4"}
 ```
 
-If not found in the query-string, it will look in the POST request body.
-The `handler` will interpret it
-depending on the provided `Content-Type` header.
+Otherwise it reads the POST body according to its `Content-Type`:
 
-  * **`application/json`**: the POST body will be parsed as a JSON
-    object of parameters.
+- **`application/json`**: a JSON object with the parameters above.
+- **`application/x-www-form-urlencoded`**: url-encoded key-value pairs.
+- **`application/graphql`**: the body is the `query` itself.
 
-  * **`application/x-www-form-urlencoded`**: this POST body will be
-    parsed as a url-encoded string of key-value pairs.
+`NewRequestOptions` exposes this parsing on its own, for servers that execute the
+operation themselves.
 
-  * **`application/graphql`**: The POST body will be parsed as GraphQL
-    query string, which provides the `query` parameter.
+## Contributing
 
+Issues and pull requests are welcome, including ones still open on the original
+repository. See the [`gql-go/graphql`](https://github.com/gql-go/graphql)
+README for how the project is run.
 
-### Examples
-- [golang-graphql-playground](https://github.com/graphql-go/playground)
-- [golang-relay-starter-kit](https://github.com/sogko/golang-relay-starter-kit)
-- [todomvc-relay-go](https://github.com/sogko/todomvc-relay-go)
+## License
 
-### Test
-```bash
-$ go get github.com/graphql-go/handler
-$ go build && go test ./...
+[MIT](LICENSE), the same as the original project.

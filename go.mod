@@ -1,5 +1,5 @@
-module github.com/graphql-go/handler
+module github.com/gql-go/handler
 
-go 1.14
+go 1.21
 
-require github.com/graphql-go/graphql v0.8.1 // indirect
+require github.com/gql-go/graphql v0.9.0
