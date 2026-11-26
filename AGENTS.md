@@ -35,6 +35,9 @@ behaving the same way.
 
 - Changes are additive: a new field on `Config`, a new function next to the
   existing one. Never remove or change the signature of an exported symbol.
+  As in the [Go 1 compatibility promise](https://go.dev/doc/go1compat), unkeyed
+  literals of exported structs (`Config{a, b}`) are not covered, so adding a
+  field is compatible; `go vet` reports such literals.
 - **A change in behaviour is opt-in.** It is enabled through explicit
   configuration (a new `Config` field, option or function); the default stays
   as it was. This applies to bug fixes too when existing users may depend on
