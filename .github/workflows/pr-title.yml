@@ -1,0 +1,23 @@
+name: Pull request title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions: {}
+
+jobs:
+  title:
+    name: Conventional Commits title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # Squash merges use the title as the commit subject on master.
+          pattern='^(feat|fix|docs|test|refactor|perf|ci|chore)(\([a-z0-9/-]+\))?: [^[:space:]]'
+          if [[ ! "$TITLE" =~ $pattern ]]; then
+            echo "::error::Title must follow Conventional Commits, for example 'fix: handle null variables'. Allowed types: feat, fix, docs, test, refactor, perf, ci, chore. Breaking changes (!) are not accepted."
+            exit 1
+          fi

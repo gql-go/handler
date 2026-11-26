@@ -1,0 +1,33 @@
+version: "2"
+
+# CI reports only issues on lines changed by a pull request (only-new-issues),
+# so inherited code does not fail the build.
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - misspell
+    - staticcheck
+    - unused
+    - godot
+    - revive
+  settings:
+    revive:
+      rules:
+        - name: exported
+  exclusions:
+    generated: lax
+    presets:
+      - std-error-handling
+      - common-false-positives
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+          - revive
+
+formatters:
+  enable:
+    - gofmt

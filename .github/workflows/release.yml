@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, for example v0.10.0"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency: release
+
+defaults:
+  run:
+    # Explicit bash enables pipefail.
+    shell: bash
+
+env:
+  VERSION: ${{ inputs.version }}
+  BASELINE: github.com/graphql-go/handler@v0.2.4
+  RENAMES: github.com/graphql-go/handler=github.com/gql-go/handler github.com/graphql-go/graphql=github.com/gql-go/graphql
+
+jobs:
+  tag:
+    name: Check and tag ${{ inputs.version }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+
+      - name: Validate version
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+          [ "$GITHUB_REF" = refs/heads/master ] || fail "Run the release from master."
+          [[ "$VERSION" =~ ^v0\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || fail "Version must look like v0.MINOR.PATCH."
+          git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null && fail "Tag $VERSION already exists."
+          latest=$(git tag -l 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+          [ "$(printf '%s\n%s\n' "$latest" "$VERSION" | sort -V | tail -1)" = "$VERSION" ] ||
+            fail "$VERSION is not greater than the latest tag $latest."
+          echo "LATEST=$latest" >>"$GITHUB_ENV"
+
+      - name: Test
+        run: |
+          go vet ./...
+          go test ./...
+
+      - name: Check compatibility with ${{ env.BASELINE }}
+        run: .github/scripts/baseline-check.sh "$BASELINE" $RENAMES
+
+      - name: Check the API changes since ${{ env.LATEST }}
+        run: |
+          # gorelease accepts any v0 version, so its report is checked here:
+          # no incompatible changes, and new API needs a minor release.
+          GOBIN="$RUNNER_TEMP" go install golang.org/x/exp/cmd/gorelease@v0.0.0-20261124000051-d6646c509b6d
+          "$RUNNER_TEMP/gorelease" -base="$LATEST" -version="$VERSION" | tee "$RUNNER_TEMP/gorelease.txt"
+          if grep -qE '^## (incompatible changes|errors)' "$RUNNER_TEMP/gorelease.txt"; then
+            echo "::error::Incompatible changes or errors since $LATEST."; exit 1
+          fi
+          if grep -q '^## compatible changes' "$RUNNER_TEMP/gorelease.txt" &&
+             [ "${VERSION%.*}" = "${LATEST%.*}" ]; then
+            echo "::error::New exported API since $LATEST requires a minor release, not $VERSION."; exit 1
+          fi
+
+      - name: Tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$VERSION" -m "$VERSION"
+          git push origin "$VERSION"
+
+  # Separate job so that "Re-run failed jobs" can retry publication after the
+  # tag exists.
+  publish:
+    name: Publish ${{ inputs.version }}
+    needs: tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$VERSION" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $VERSION already exists."
+          else
+            gh release create "$VERSION" -R "$GITHUB_REPOSITORY" --verify-tag --generate-notes --title "$VERSION"
+          fi
+
+      - name: Warm the Go module proxy and checksum database
+        run: |
+          module="github.com/$GITHUB_REPOSITORY"
+          for url in "https://proxy.golang.org/$module/@v/$VERSION.info" \
+                     "https://sum.golang.org/lookup/$module@$VERSION"; do
+            for attempt in 1 2 3 4 5 6 7 8 9 10; do
+              if curl -fsS "$url"; then echo; break; fi
+              [ "$attempt" -eq 10 ] && { echo "::error::$url did not resolve."; exit 1; }
+              sleep 30
+            done
+          done
