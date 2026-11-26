@@ -43,9 +43,19 @@ renamed=0
 while IFS= read -r line; do
 	case $line in
 	"# "*) package=${line#"# "} ;;
-	"## "*) section=${line#"## "} ;;
+	"## "*)
+		section=${line#"## "}
+		# A comparison with load errors is incomplete; treat it as failed.
+		if [[ $section == errors* ]]; then
+			breaks+=("$(rename "$package"): $section")
+		fi
+		;;
 	"") ;;
 	*)
+		if [[ $section == errors* ]]; then
+			breaks+=("  $line")
+			continue
+		fi
 		[ "$section" = "incompatible changes" ] || continue
 		if [[ $line =~ ^(.*):\ changed\ from\ (.*)\ to\ (.*)$ ]] &&
 			[ "$(rename "${BASH_REMATCH[2]}")" = "${BASH_REMATCH[3]}" ]; then
@@ -57,7 +67,7 @@ while IFS= read -r line; do
 	esac
 done <"$work/report.txt"
 
-echo "Compared with $baseline: ${#breaks[@]} incompatible changes, $renamed module path renames ignored."
+echo "Compared with $baseline: ${#breaks[@]} problems, $renamed module path renames ignored."
 if [ "${#breaks[@]}" -gt 0 ]; then
 	printf '  %s\n' "${breaks[@]}"
 	echo "::error::Incompatible changes against $baseline. See AGENTS.md, rule 1."
