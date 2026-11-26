@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://www.coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit reviews are advisory: a maintainer's approval decides the merge.
+# Review rules come from AGENTS.md, which CodeRabbit reads automatically.
+language: en-US
+
+reviews:
+  profile: chill
+  poem: false
+  in_progress_fortune: false
+  sequence_diagrams: false
+  suggested_reviewers: false
+  fail_commit_status: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_instructions:
+    - path: "**/*.go"
+      instructions: |
+        Code written against graphql-go/handler v0.2.4 must keep compiling and
+        behaving the same way. Flag any removed or changed exported symbol,
+        and any behaviour change that is not opt-in through explicit
+        configuration. Compare behaviour with the GraphQL over HTTP
+        specification and graphql-http. Flag comments that narrate code,
+        record history, or run longer than a few lines.
+    - path: "**/*_test.go"
+      instructions: |
+        Tests inherited from upstream must not be modified to make a change
+        pass; new behaviour gets new tests.
+    - path: "go.mod"
+      instructions: |
+        Flag any change to the go directive or a new toolchain line; raising
+        the minimum Go version is a separate decision.
+  tools:
+    golangci-lint:
+      enabled: true
+      config_file: .golangci.yml
+  pre_merge_checks:
+    title:
+      mode: "off"
+
+chat:
+  auto_reply: true
