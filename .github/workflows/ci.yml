@@ -18,8 +18,8 @@ jobs:
         # The minimum version declared in go.mod, and the latest release.
         go: ["1.21", "stable"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go }}
       - run: go vet ./...
@@ -28,16 +28,52 @@ jobs:
   race-coverage:
     name: Race detector and coverage
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # Codecov upload through OIDC
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version: stable
       - name: Test
         run: |
           go test -race -coverprofile=coverage.out ./...
-          go tool cover -func=coverage.out | tail -1
-      - uses: actions/upload-artifact@v4
+          echo "Coverage: $(go tool cover -func=coverage.out | tail -1 | awk '{print $NF}')" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: codecov/codecov-action@v7
         with:
-          name: coverage
-          path: coverage.out
+          files: coverage.out
+          disable_search: true
+          # Pull requests from forks cannot get an OIDC token; Codecov accepts
+          # tokenless uploads from them on public repositories.
+          use_oidc: ${{ !github.event.pull_request.head.repo.fork }}
+          fail_ci_if_error: false
+
+  lint:
+    name: Lint
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15.0
+          # Inherited code has known issues; only lines changed by the pull
+          # request are checked.
+          only-new-issues: true
+
+  api:
+    name: API compatibility
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+      - run: .github/scripts/apidiff.sh "${{ github.event.pull_request.base.sha }}"

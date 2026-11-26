@@ -1,0 +1,13 @@
+coverage:
+  status:
+    # Informational while the project settles on coverage targets.
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
+
+comment:
+  layout: "condensed_header, diff, flags, files"
+  require_changes: false
